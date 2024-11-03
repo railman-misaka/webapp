@@ -122,12 +122,12 @@ export default function Component() {
 function PostCreationView() {
   // フォームデータの状態管理
   const [formData, setFormData] = useState({
-    theme: '',
+    role: '',
+    content: '',
     target: '',
-    instructions: '',
     url: ''
   });
-  // ローディング状態の管理
+  // ローィング状態の管理
   const [isLoading, setIsLoading] = useState(false);
   // 生成されたスクリプトの状態管理
   const [generatedScript, setGeneratedScript] = useState('');
@@ -140,25 +140,56 @@ function PostCreationView() {
       setIsLoading(true);
       setError('');
       
-      // 内部APIエンドポイントにリクエスト
-      const response = await fetch('/api/generate', {
+      // プロンプトテンプレートの作成
+      const prompt = `
+以下の条件で、魅力的な動画台本を作成してください：
+
+テーマ：${formData.role}
+台本の概要：${formData.content}
+ターゲット：${formData.target}
+参考URL：${formData.url}
+
+以下の形式で台本を作成してください：
+1. オープニング（5秒）
+2. 導入部（10-15秒）
+3. メイン内容（30-40秒）
+4. まとめ・CTA（5-10秒）
+`;
+
+      const response = await fetch('https://api.dify.ai/v1/chat-messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_DIFY_API_KEY}`,
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          inputs: {
+            role: formData.role,
+            content: formData.content,
+            target: formData.target,
+            url: formData.url
+          },
+          query: prompt,
+          user: "default-user",
+          conversation_id: null,
+          response_mode: "blocking",
+
+        })
       });
+      console.log("response", response);
 
       if (!response.ok) {
-        throw new Error('APIリクエストに失敗しました');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'APIリクエストに失敗しました');
       }
 
       const data = await response.json();
+      // 生成された台本を表示エリアに設定
       setGeneratedScript(data.answer);
       
     } catch (error) {
       console.error('エラー:', error);
-      setError('生成中にエラーが発生しました。もう一度お試しください。');
+      setError(error instanceof Error ? error.message : '生成中にエラーが発生しました。もう一度お試しください。');
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +223,7 @@ function PostCreationView() {
           </TabsTrigger>
         </TabsList>
 
-        {/* 動画台本生成タブのコンテンツ */}
+        {/* 動画台本生成タのコンテンツ */}
         <TabsContent value="plot">
           <Card className="border-pink-100 shadow-lg rounded-2xl overflow-hidden">
             <CardContent className="space-y-6 p-6">
@@ -208,8 +239,8 @@ function PostCreationView() {
                         テーマ：
                       </Label>
                       <Input
-                        id="theme"
-                        value={formData.theme}
+                        id="role"
+                        value={formData.role}
                         onChange={handleInputChange}
                         placeholder="例：AIマネタイズ"
                         className="rounded-xl border-pink-200 focus:border-pink-500 focus:ring-pink-500"
@@ -234,8 +265,8 @@ function PostCreationView() {
                         台本の概要：
                       </Label>
                       <Textarea
-                        id="instructions"
-                        value={formData.instructions}
+                        id="content"
+                        value={formData.content}
                         onChange={handleInputChange}
                         placeholder="台本の概要や主要なポイントを簡潔に記入してください"
                         className="min-h-[100px] rounded-xl border-pink-200 focus:border-pink-500 focus:ring-pink-500"
@@ -436,7 +467,7 @@ function FreeConsultationView() {
             />
           </div>
           <Button className="rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
-            予約する
+            約する
           </Button>
         </form>
       </CardContent>
